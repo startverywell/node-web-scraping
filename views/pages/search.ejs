@@ -1,0 +1,45 @@
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>SKU</th>
+            <th>Product Name</th>
+            <th>Content</th>
+            <th>Price</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td colspan="4">givensandcompany.com</td>
+        </tr>
+        <% value1.forEach((value) => { %>
+            <tr>
+                <td><%= value.sku %></td>
+                <td><%= value.title %></td>
+                <td><%= value.discription %></td>
+                <td><%= value.price %></td>
+            </tr>
+        <% }); %>
+        <tr>
+            <td colspan="4">winecountrygiftbaskets.com</td>
+        </tr>
+        <% value2.forEach((value) => { %>
+            <tr>
+                <td><%= value.sku %></td>
+                <td><%= value.title %></td>
+                <td><%= value.discription %></td>
+                <td><%= value.price %></td>
+            </tr>
+        <% }); %>
+        <tr>
+            <td colspan="4">gourmetgiftbaskets.com</td>
+        </tr>
+        <% value3.forEach((value) => { %>
+            <tr>
+                <td><%= value.sku %></td>
+                <td><%= value.title %></td>
+                <td><%= value.discription %></td>
+                <td><%= value.price %></td>
+            </tr>
+        <% }); %>
+    </tbody>
+</table>

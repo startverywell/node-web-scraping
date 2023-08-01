@@ -19,8 +19,8 @@ app.get('/', function(req, res) {
 app.post('/search', async function(req, res) {
     let search = req.body.search;
     let value1 = await getGivensandcompany(search);
-    let value3 = await getGourmetgiftbaskets(search);
     let value2 = await getWinecountrygiftbaskets(search);
+    let value3 = await getGourmetgiftbaskets(search);
     res.render('pages/search', {value1, value2, value3});
 });
 
@@ -46,9 +46,8 @@ const getQuotes = async (search) => {
         const quoteList = document.querySelectorAll(".sERPSMg");
   
         return Array.from(quoteList).map((quote) => {
-            const title = quote.querySelector(".sil_d4M").innerText;
             const link = quote.querySelector(".sil_d4M").href;
-            return { title, link };
+            return { link };
         });
     });
   
@@ -72,8 +71,10 @@ const getProduct = async (link) => {
     const quotes = await page.evaluate(() => {
         let title = document.querySelector("._2qrJF").innerText;
         let sku = document.querySelector("._1rwRc").innerText;
-        let price = document.querySelector("._26qxh > span").innerText;
+        let price = (document.querySelector("._26qxh > span").innerText.split("$")[1]) * 0.8;
         let discription = document.querySelector(".WncCi > p").innerText;
+
+        price = Math.round(price * 100) / 100;
         return { title, sku, price, discription };
     });
   
@@ -130,9 +131,8 @@ const getGourmetgifts = async (search) => {
         const quoteList = document.querySelectorAll("div.SingleProductDisplayName.recordname>a");
   
         return Array.from(quoteList).map((quote) => {
-            const title = quote.innerText;
             const link = quote.href;
-            return { title, link };
+            return { link };
         });
     });
   
@@ -156,8 +156,10 @@ const getGourmetgift = async (link) => {
     const quotes = await page.evaluate(() => {
         let title = document.querySelector("span#ctl00_MainContentHolder_lblName").innerText;
         let sku = document.querySelector("span#ctl00_MainContentHolder_lblSku").innerText;
-        let price = document.querySelector("span#ctl00_MainContentHolder_lblSitePrice").innerText;
+        let price = (document.querySelector("span#ctl00_MainContentHolder_lblSitePrice").innerText.split("$")[1]) * 0.75;;
         let discription = document.querySelector("span#ctl00_MainContentHolder_lblDescription").innerText;
+        
+        price = Math.round(price * 100) / 100;
         return { title, sku, price, discription };
     });
   
@@ -167,15 +169,16 @@ const getGourmetgift = async (link) => {
 
 //------------------------------------------------------------------------------------------------
 const getWinecountrygiftbaskets = async (search) => {
-    let products = await getWineGifts(search);
-    console.log(products);
-    let total = new Array(products.length);
-    for (let product of Array.from(products)) {
+    // let products = await getWineGifts(search);
+    // console.log(products);
+    // let total = new Array(products.length);
+    // for (let product of Array.from(products)) {
         // Assuming getProduct() returns a Promise
-        let productData = await getWineGift(product.link);
+        let total = [];
+        let productData = await getWineGift(`https://www.winecountrygiftbaskets.com/gift-baskets/organic-deluxe-fruit-collection-gift-baskets/${search}?formskw=${search}&ts=y`);
         console.log(productData);
         total.push(productData);
-    }
+    // }
 
     return total;
 }
@@ -186,28 +189,28 @@ const getWineGifts = async (search) => {
     page.setDefaultTimeout(1000000);
 
     // Go to the desired webpage
-    await page.goto('https://www.winecountrygiftbaskets.com/');
-    console.log('input');
-    // Fill in the form fields
-    await page.type('#header-bar-left-search-input', search);
+    // await page.goto('https://www.winecountrygiftbaskets.com/');
+    // console.log('input');
+    // // Fill in the form fields
+    // await page.type('#header-bar-left-search-input', search);
 
-    await page.evaluate(() => {
-        const form = document.querySelector('#main_search');
-        form.method = 'POST';
-        form.action = 'https://www.winecountrygiftbaskets.com/product/giftbasketsearch';
-        form.submit();
-    });
-    console.log('submit');
+    // await page.evaluate(() => {
+    //     const form = document.querySelector('#main_search');
+    //     form.method = 'POST';
+    //     form.action = 'https://www.winecountrygiftbaskets.com/product/giftbasketsearch';
+    //     form.submit();
+    // });
+    // console.log('submit');
 
-    await page.waitForNavigation({ waitUntil: 'networkidle0' });
-
+    // await page.waitForNavigation({ waitUntil: 'networkidle0' });
+    // console.log('resive');
+    await page.goto(`https://www.winecountrygiftbaskets.com/gift-baskets/organic-deluxe-fruit-collection-gift-baskets/${search}?formskw=${search}&ts=y`);
     const quotes = await page.evaluate(() => {
         const quoteList = document.querySelectorAll(".productDetailLink1");
   
         return Array.from(quoteList).map((quote) => {
-            const title = quote.getAttribute('aria-label');
             const link = quote.href;
-            return { title, link };
+            return { link };
         });
     });
   
@@ -229,10 +232,12 @@ const getWineGift = async (link) => {
     });
   
     const quotes = await page.evaluate(() => {
-        let title = document.querySelector("h1#desc").innerText;
+        let title = document.querySelector("div#desc>h1").innerText;
         let sku = document.querySelector("div.fcwcgrey.fssmall.align_right").innerText;
-        let price = document.querySelector("div.p_price>div.ftfDosisB").innerText;
+        let price = (document.querySelector("div.p_price>div.ftfDosisB").innerText.split("$")[1]) * 0.75;
         let discription = document.querySelector("div#up_desc").innerText;
+
+        price = Math.round(price * 100) / 100;
         return { title, sku, price, discription };
     });
   

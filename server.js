@@ -8,6 +8,7 @@ var bodyParser = require('body-parser');
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(express.static(__dirname + '/public'));
 
 // use res.render to load up an ejs view file
 
@@ -23,9 +24,10 @@ app.post('/search', async function(req, res) {
     value1 = [].concat(...results.value1);
     value2 = [].concat(...results.value2);
     value3 = [].concat(...results.value3);
+    value4 = [].concat(...results.value4);
 
     console.log({results});
-    res.render('pages/search', {value1, value2, value3});
+    res.render('pages/search', {value1, value2, value3, value4});
 });
 
 
@@ -284,24 +286,26 @@ const getCapalbosAll = async (search) => {
 }
 
 const getCapalbos = async (search) => {
-    const browser = await puppeteer.launch({
-        headless: true,
+    let browser = await puppeteer.launch({
+        headless: false,
         defaultViewport: null,
     });
   
-    const page = await browser.newPage();
+    let page = await browser.newPage();
   
     page.setDefaultTimeout(10000000);
     await page.goto(`https://www.capalbosonline.com/search?keywords=${search}`, {
         waitUntil: "domcontentloaded",
     });
   
-    const quotes = await page.evaluate(() => {
-        const quoteList = document.querySelectorAll("div.product-item");
-  
-        return Array.from(quoteList).map((quote) => {
-            const link = quote.querySelector("a").href;
-            return { link };
+    let quotes = [];
+    await page.evaluate(() => {
+        let quoteList = document.querySelectorAll(".facets-items-collection-view-cell-span4");
+        console.log('quoteList');
+        console.log(quoteList);
+        Array.from(quoteList).map((quote) => {
+            let link = quote.querySelector("a.facets-item-cell-grid-link-image").href;
+            quotes.push({ link });
         });
     });
   
@@ -310,26 +314,26 @@ const getCapalbos = async (search) => {
 }
 
 const getCapalbosProduct = async (link,search) => {
-    const browser = await puppeteer.launch({
-        headless: true,
+    let browser = await puppeteer.launch({
+        headless: false,
         defaultViewport: null,
     });
   
-    const page = await browser.newPage();
+    let page = await browser.newPage();
   
     page.setDefaultTimeout(1000000);
     await page.goto(link, {
         waitUntil: "domcontentloaded",
     });
   
-    const quotes = await page.evaluate(() => {
-        let titleObj = document.querySelector("span#ctl00_MainContentHolder_lblName");
+    let quotes = await page.evaluate(() => {
+        let titleObj = document.querySelector("h1.product-details-full-content-header-title");
 
         if(titleObj) {
-            let title = document.querySelector("span#ctl00_MainContentHolder_lblName").innerText ?? "";
-            let sku = document.querySelector("span#ctl00_MainContentHolder_lblSku").innerText ?? "";
-            let price = (document.querySelector("span#ctl00_MainContentHolder_lblSitePrice").innerText.split("$")[1]) * 0.75;;
-            let discription = document.querySelector("span#ctl00_MainContentHolder_lblDescription").innerText ?? "";
+            let title = titleObj.innerText ?? "";
+            let sku = document.querySelector("span.product-line-sku-value").innerText ?? "";
+            let price = (document.querySelector("span.product-views-price-lead").innerText.split("$")[1]) * 0.75;;
+            let discription = document.querySelector("div.storedescriptioncontainer").innerText ?? "";
             
             price = Math.round(price * 100) / 100;
             return { title, sku, price, discription };

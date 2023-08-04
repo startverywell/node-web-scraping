@@ -1,0 +1,7 @@
+.loading {
+    background-image: url('./loading.gif');
+    background-repeat: no-repeat;
+    background-position: top;
+    height: 80vh;
+    z-index: 1;
+}

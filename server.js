@@ -8,6 +8,7 @@ var bodyParser = require('body-parser');
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(express.static(__dirname + '/public'));
 
 // use res.render to load up an ejs view file
 
@@ -17,21 +18,66 @@ app.get('/', function(req, res) {
 });
 
 app.post('/search', async function(req, res) {
-    let search = req.body.search;
-    let value1 = await getGivensandcompany(search);
-    let value3 = await getGourmetgiftbaskets(search);
-    let value2 = await getWinecountrygiftbaskets(search);
-    res.render('pages/search', {value1, value2, value3});
+    let results = await getResult(req.body.search);
+    
+
+    value1 = [].concat(...results.value1);
+    value2 = [].concat(...results.value2);
+    value3 = [].concat(...results.value3);
+    value4 = [].concat(...results.value4);
+
+    console.log({results});
+    res.render('pages/search', {value1, value2, value3, value4});
 });
 
 
-app.listen(8080);
-console.log('8080 is the magic port');
+app.listen(8081);
+console.log('8081 is the magic port');
+//------------------------------------------------------------------------------------------------
+
+const getResult = async (search) => {
+    let searchs = search.split(',');
+    let value1 = [];
+    let value2 = [];
+    let value3 = [];
+    let value4 = [];
+
+    await Promise.all(searchs.map(async (search) => {
+        const trimmedSearch = search.trim();
+        const type = trimmedSearch.split('-')[0];
+        const sku = trimmedSearch.split('-')[1];
+
+        let results;
+        switch (type) {
+            case 'GC':
+                results = await getGivensandcompany(sku);
+                value1.push(results);
+                break;
+            case 'WC':
+                results = await getWinecountrygiftbaskets(sku);
+                value2.push(results);
+                break;
+            case 'GGB':
+                results = await getGourmetgiftbaskets(sku);
+                value3.push(results);
+                break;
+            case 'CPB':
+                results = await getCapalbosAll(sku);
+                value4.push(results);
+                break;
+            default:
+                break;
+        }
+    }));
+
+    return { value1, value2, value3, value4 };
+}
+
 //------------------------------------------------------------------------------------------------
 
 const getQuotes = async (search) => {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         defaultViewport: null,
     });
   
@@ -46,9 +92,8 @@ const getQuotes = async (search) => {
         const quoteList = document.querySelectorAll(".sERPSMg");
   
         return Array.from(quoteList).map((quote) => {
-            const title = quote.querySelector(".sil_d4M").innerText;
             const link = quote.querySelector(".sil_d4M").href;
-            return { title, link };
+            return { link };
         });
     });
   
@@ -56,9 +101,9 @@ const getQuotes = async (search) => {
     return quotes;
 };
 
-const getProduct = async (link) => {
+const getProduct = async (link,search) => {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         defaultViewport: null,
     });
   
@@ -70,15 +115,22 @@ const getProduct = async (link) => {
     });
   
     const quotes = await page.evaluate(() => {
-        let title = document.querySelector("._2qrJF").innerText;
-        let sku = document.querySelector("._1rwRc").innerText;
-        let price = document.querySelector("._26qxh > span").innerText;
-        let discription = document.querySelector(".WncCi > p").innerText;
-        return { title, sku, price, discription };
+        let titleObj = document.querySelector("._2qrJF");
+        if (titleObj) {
+            let title = document.querySelector("._2qrJF").innerText ?? "";
+            let sku = document.querySelector("._1rwRc").innerText ?? "";
+            let price = (document.querySelector("._26qxh > span").innerText.split("$")[1]) * 0.8;
+            let discription = document.querySelector(".WncCi > p").innerText ?? "";
+
+            price = Math.round(price * 100) / 100;
+            return { title, sku, price, discription };
+        } else {
+            return null;
+        }
     });
   
     await browser.close();
-    return quotes;
+    return quotes ?? {sku:search,title:'no product found'};
 }
 
 const getGivensandcompany = async (search) => {
@@ -87,7 +139,7 @@ const getGivensandcompany = async (search) => {
     let total = new Array(products.length);
     for (let product of Array.from(products)) {
         // Assuming getProduct() returns a Promise
-        let productData = await getProduct(product.link);
+        let productData = await getProduct(product.link, search);
         console.log(productData);
         total.push(productData);
     }
@@ -103,18 +155,17 @@ const getGourmetgiftbaskets = async (search) => {
     let total = new Array(products.length);
     for (let product of Array.from(products)) {
         // Assuming getProduct() returns a Promise
-        let productData = await getGourmetgift(product.link);
+        let productData = await getGourmetgift(product.link, search);
         console.log(productData);
         total.push(productData);
     }
-
     return total;
 }
 
 
 const getGourmetgifts = async (search) => {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         defaultViewport: null,
     });
   
@@ -130,9 +181,8 @@ const getGourmetgifts = async (search) => {
         const quoteList = document.querySelectorAll("div.SingleProductDisplayName.recordname>a");
   
         return Array.from(quoteList).map((quote) => {
-            const title = quote.innerText;
             const link = quote.href;
-            return { title, link };
+            return { link };
         });
     });
   
@@ -140,9 +190,9 @@ const getGourmetgifts = async (search) => {
     return quotes;
 }
 
-const getGourmetgift = async (link) => {
+const getGourmetgift = async (link, search) => {
     const browser = await puppeteer.launch({
-        headless: "new",
+        headless: true,
         defaultViewport: null,
     });
   
@@ -154,72 +204,43 @@ const getGourmetgift = async (link) => {
     });
   
     const quotes = await page.evaluate(() => {
-        let title = document.querySelector("span#ctl00_MainContentHolder_lblName").innerText;
-        let sku = document.querySelector("span#ctl00_MainContentHolder_lblSku").innerText;
-        let price = document.querySelector("span#ctl00_MainContentHolder_lblSitePrice").innerText;
-        let discription = document.querySelector("span#ctl00_MainContentHolder_lblDescription").innerText;
-        return { title, sku, price, discription };
+        let titleObj = document.querySelector("span#ctl00_MainContentHolder_lblName");
+
+        if(titleObj) {
+            let title = document.querySelector("span#ctl00_MainContentHolder_lblName").innerText ?? "";
+            let sku = document.querySelector("span#ctl00_MainContentHolder_lblSku").innerText ?? "";
+            let price = (document.querySelector("span#ctl00_MainContentHolder_lblSitePrice").innerText.split("$")[1]) * 0.75;;
+            let discription = document.querySelector("span#ctl00_MainContentHolder_lblDescription").innerText ?? "";
+            
+            price = Math.round(price * 100) / 100;
+            return { title, sku, price, discription };
+        } else 
+            return null;
     });
   
     await browser.close();
-    return quotes;
+    return quotes ?? {sku:search,title:'no product found'};
 }
 
 //------------------------------------------------------------------------------------------------
+
 const getWinecountrygiftbaskets = async (search) => {
-    let products = await getWineGifts(search);
-    console.log(products);
-    let total = new Array(products.length);
-    for (let product of Array.from(products)) {
-        // Assuming getProduct() returns a Promise
-        let productData = await getWineGift(product.link);
-        console.log(productData);
-        total.push(productData);
-    }
+    
+    let total = [];
+    let productData = await getWineGift(search);
+    console.log(productData);
+    total.push(productData);
 
     return total;
 }
 
-const getWineGifts = async (search) => {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    page.setDefaultTimeout(1000000);
-
-    // Go to the desired webpage
-    await page.goto('https://www.winecountrygiftbaskets.com/');
-    console.log('input');
-    // Fill in the form fields
-    await page.type('#header-bar-left-search-input', search);
-
-    await page.evaluate(() => {
-        const form = document.querySelector('#main_search');
-        form.method = 'POST';
-        form.action = 'https://www.winecountrygiftbaskets.com/product/giftbasketsearch';
-        form.submit();
-    });
-    console.log('submit');
-
-    await page.waitForNavigation({ waitUntil: 'networkidle0' });
-
-    const quotes = await page.evaluate(() => {
-        const quoteList = document.querySelectorAll(".productDetailLink1");
-  
-        return Array.from(quoteList).map((quote) => {
-            const title = quote.getAttribute('aria-label');
-            const link = quote.href;
-            return { title, link };
-        });
-    });
-  
-    await browser.close();
-    return quotes;
-}
-
-const getWineGift = async (link) => {
+const getWineGift = async (search) => {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         defaultViewport: null,
     });
+
+    let link = `https://www.winecountrygiftbaskets.com/gift-baskets/organic-deluxe-fruit-collection-gift-baskets/${search}?formskw=${search}&ts=y`;
   
     const page = await browser.newPage();
   
@@ -229,13 +250,97 @@ const getWineGift = async (link) => {
     });
   
     const quotes = await page.evaluate(() => {
-        let title = document.querySelector("h1#desc").innerText;
-        let sku = document.querySelector("div.fcwcgrey.fssmall.align_right").innerText;
-        let price = document.querySelector("div.p_price>div.ftfDosisB").innerText;
-        let discription = document.querySelector("div#up_desc").innerText;
-        return { title, sku, price, discription };
+        let titleObj = document.querySelector("div#desc>h1");
+        if (titleObj) {
+            let title = titleObj.innerText ?? "";
+            let sku = document.querySelector("div.fcwcgrey.fssmall.align_right").innerText ?? "";
+            let price = (document.querySelector("div.p_price>div.ftfDosisB").innerText.split("$")[1]) * 0.75;
+            let discription = document.querySelector("div#up_desc").innerText ?? "";
+
+            price = Math.round(price * 100) / 100;
+            return { title, sku, price, discription };
+        } else {
+            return null;
+        }
+        
+    });
+  
+    await browser.close();
+    return quotes ?? {sku:search,title:'no product found'};
+}
+
+//------------------------https://www.capalbosonline.com/search?keywords=search-----------------------------
+
+
+const getCapalbosAll = async (search) => {
+    let products = await getCapalbos(search);
+    console.log(products);
+    let total = new Array(products.length);
+    for (let product of Array.from(products)) {
+        // Assuming getProduct() returns a Promise
+        let productData = await getCapalbosProduct(product.link, search);
+        console.log(productData);
+        total.push(productData);
+    }
+    return total;
+}
+
+const getCapalbos = async (search) => {
+    let browser = await puppeteer.launch({
+        headless: false,
+        defaultViewport: null,
+    });
+  
+    let page = await browser.newPage();
+  
+    page.setDefaultTimeout(10000000);
+    await page.goto(`https://www.capalbosonline.com/search?keywords=${search}`, {
+        waitUntil: "domcontentloaded",
+    });
+  
+    let quotes = [];
+    await page.evaluate(() => {
+        let quoteList = document.querySelectorAll(".facets-items-collection-view-cell-span4");
+        console.log('quoteList');
+        console.log(quoteList);
+        Array.from(quoteList).map((quote) => {
+            let link = quote.querySelector("a.facets-item-cell-grid-link-image").href;
+            quotes.push({ link });
+        });
     });
   
     await browser.close();
     return quotes;
+}
+
+const getCapalbosProduct = async (link,search) => {
+    let browser = await puppeteer.launch({
+        headless: false,
+        defaultViewport: null,
+    });
+  
+    let page = await browser.newPage();
+  
+    page.setDefaultTimeout(1000000);
+    await page.goto(link, {
+        waitUntil: "domcontentloaded",
+    });
+  
+    let quotes = await page.evaluate(() => {
+        let titleObj = document.querySelector("h1.product-details-full-content-header-title");
+
+        if(titleObj) {
+            let title = titleObj.innerText ?? "";
+            let sku = document.querySelector("span.product-line-sku-value").innerText ?? "";
+            let price = (document.querySelector("span.product-views-price-lead").innerText.split("$")[1]) * 0.75;;
+            let discription = document.querySelector("div.storedescriptioncontainer").innerText ?? "";
+            
+            price = Math.round(price * 100) / 100;
+            return { title, sku, price, discription };
+        } else 
+            return null;
+    });
+  
+    await browser.close();
+    return quotes ?? {sku:search,title:'no product found'};
 }
